@@ -10,7 +10,7 @@ namespace MesonScannerMod
     {
         public const string pluginGuid = "net.elmo.stationeers.MesonScannerMod";
         public const string pluginName = "MesonScannerMod";
-        public const string pluginVersion = "0.1";
+        public const string pluginVersion = "0.2";
         public static void Log(string line)
         {
             Debug.Log("[" + pluginName + "]: " + line);
