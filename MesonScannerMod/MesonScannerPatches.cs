@@ -62,12 +62,17 @@ namespace MesonScannerMod
                     Color netowrkColor = Utils.GetPipenetworkColor(allPipeNetwork);
                     foreach (Pipe pipe in allPipeNetwork.StructureList)
                     {
-                        if (!pipe.IsOccluded && (!(pipe is HydroponicTray) || alternaltiveMode))
+                        if (!pipe.IsOccluded && (!(pipe is HydroponicTray) || alternaltiveMode) && (pipe.DamageState.TotalRatio == 0 || Utils.Blink())) //
                         {
                             Color color = pipe.CustomColor.Color;
                             if (Utils.CurrentDisplayMode != Utils.DisplayMode.Mode1)
                             {
                                 color = netowrkColor;
+                            }
+                            if (pipe.IsBurst != 0) //Parent.DamageState.TotalRatio > Parent.CriticalHealth; //pipe.DamageState.Total >= pipe.DamageState.MaxDamage
+                            {
+                                Utils.AddToBatch(pipe, color, ref ____batchList, null, GameManager.Instance.CustomColors[4].Color);
+                                continue;
                             }
                             Utils.AddToBatch(pipe, color, ref ____batchList);
                         }
@@ -274,6 +279,19 @@ namespace MesonScannerMod
                         modeString = "Plants - Growth Stage";
                     }
                     Utils.AddToBatch(plant, thisColor, ref ____batchList);
+
+                    // 0: blue
+                    // 1: gray
+                    // 2: green
+                    // 3: orange
+                    // 4: red
+                    // 5: yellow
+                    // 6: white
+                    // 7: black
+                    // 8: brown
+                    // 9: khaki
+                    //10: pink
+                    //11: purple
                 }
 
 
@@ -333,6 +351,7 @@ namespace MesonScannerMod
         {
 
             bool toggleMode = KeyManager.GetButtonDown(KeyCode.LeftShift);
+            bool primary = KeyManager.GetMouseDown("Primary");
             bool secondary = KeyManager.GetMouseDown("Secondary");
             bool lockIn = KeyManager.GetButtonDown(KeyCode.Mouse2);
             bool keyUp = __instance.newScrollData > 0f;
@@ -353,6 +372,10 @@ namespace MesonScannerMod
                         }
                         if (InventoryManager.Instance.ActiveHand.Slot.Get() == null)
                         {
+                            if (primary)
+                            {
+                                Utils.SetTarget(CursorManager.CursorThing);
+                            }
                             if (secondary)
                             {
                                 Utils.NextMode();
@@ -399,6 +422,11 @@ namespace MesonScannerMod
         {
             Batches.Clear();
         }
+        public static bool Blink()
+        {
+            int f = System.DateTime.Now.Millisecond;
+            return (f >= 0 && f <= 300) || (f >= 500 && f <= 800); 
+        }
         public static void Iterate(short i)
         {
             if (!LockIn)
@@ -429,6 +457,63 @@ namespace MesonScannerMod
             while (listIndex < -1)
             {
                 listIndex += (max + 1);
+            }
+        }
+        public static void SetTarget(Thing thing)
+        {
+            if (thing == null)
+            {
+                lockPipes.Clear();
+                lockCables.Clear();
+                lockChutes.Clear();
+                listIndex = -1;
+                LockIn = false;
+            }
+            else if (thing is Cable cable)
+            {
+                listIndex = -1;
+                if (CurrentMode != Mode.Cables)
+                {
+                    CurrentMode = Mode.Cables;
+                    CurrentDisplayMode = DisplayMode.Mode2;
+                }
+                if (CurrentDisplayMode == DisplayMode.Mode1)
+                {
+                    CurrentDisplayMode = DisplayMode.Mode2;
+                }
+                LockIn = true;
+                lockPipes.Clear();
+                lockCables.Clear();
+                lockChutes.Clear();
+                lockCables.Add(cable.CableNetwork);
+            }
+            else if (thing is Chute chute)
+            {
+                listIndex = -1;
+                if (CurrentMode != Mode.Chutes)
+                {
+                    CurrentMode = Mode.Chutes;
+                    CurrentDisplayMode = DisplayMode.Mode1;
+                }
+                LockIn = true;
+                lockPipes.Clear();
+                lockCables.Clear();
+                lockChutes.Clear();
+                lockChutes.Add(chute.ChuteNetwork);
+            }
+            else if (thing is Pipe pipe)
+            {
+                listIndex = -1;
+                if (CurrentMode != Mode.Pipes)
+                {
+                    CurrentMode = Mode.Pipes;
+                    CurrentDisplayMode = DisplayMode.Mode1;
+                }
+                LockIn = true;
+                lockPipes.Clear();
+                lockCables.Clear();
+                lockChutes.Clear();
+                lockPipes.Add(pipe.PipeNetwork);
             }
         }
         public static void SetLockIn()
@@ -517,6 +602,10 @@ namespace MesonScannerMod
         }
         public static List<PipeNetwork> GetPipeNetworks(Material color)
         {
+            if (LockIn && CurrentMode == Mode.Cables)
+            {
+                return new List<PipeNetwork>();
+            }
             if (LockIn && lockPipes.Count > 0)
             {
                 if (listIndex > -1)
@@ -588,7 +677,14 @@ namespace MesonScannerMod
                     CurrentDisplayMode = DisplayMode.Mode3;
                     break;
                 case DisplayMode.Mode3:
-                    CurrentDisplayMode = DisplayMode.Mode1;
+                    if (CurrentMode == Mode.Cables && LockIn)
+                    {
+                        CurrentDisplayMode = DisplayMode.Mode2;
+                    }
+                    else
+                    {
+                        CurrentDisplayMode = DisplayMode.Mode1;
+                    }
                     break;
                 default:
                     break;
@@ -709,8 +805,17 @@ namespace MesonScannerMod
             result.Colors = new List<Vector4> { color };
             return result;
         }
+        public static ScannerMeshBatch CreateColliderMesh(Structure structure, Color color)
+        {
+            ScannerMeshBatch result = default(ScannerMeshBatch);
+            result.Mesh = CursorManager.Instance.CursorHighlighter.GetComponent<Renderer>().GetComponent<MeshFilter>().mesh;
+            //result.Mesh = CursorManager.Instance.CursorSelectionHighlighter.GetComponent<Renderer>().GetComponent<MeshFilter>().mesh;
+            result.Matrices = new List<Matrix4x4> { Matrix4x4.TRS(structure.Position, structure.Rotation, Vector3.one) }; //structure.GetSmallGridBounds().size
+            result.Colors = new List<Vector4> { color };
+            return result;
+        }
 
-        public static void AddToBatch(Thing thing, Color color, ref List<ScannerMeshBatch> _batchList, Structure parent = null)
+        public static void AddToBatch(Thing thing, Color color, ref List<ScannerMeshBatch> _batchList, Structure parent = null, Color colliderColor = default(Color))
         {
             int hash = thing.PrefabHash;
             if (thing is Plant plant)
@@ -720,6 +825,11 @@ namespace MesonScannerMod
             if (thing is Structure structure)
             {
                 hash += structure.CurrentBuildStateIndex;
+                if (colliderColor != default(Color))
+                {
+                    ScannerMeshBatch scannerMeshBatch = CreateColliderMesh(structure, colliderColor);
+                    _batchList.Add(scannerMeshBatch);
+                }
             }
             if (Batches.TryGetValue(hash, out var value))
             {
