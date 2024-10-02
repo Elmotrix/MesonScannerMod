@@ -17,6 +17,10 @@ namespace MesonScannerMod
         }
         void Awake()
         {
+            if (Harmony.HasAnyPatches(pluginGuid))
+            {
+                return;
+            }
             try
             {
                 var harmony = new Harmony(pluginGuid);
