@@ -737,7 +737,7 @@ namespace MesonScannerMod
                     maxPressure = 6000;
                     maxLiquidRatio = 1f;
                 }
-                float pressureRatio = pipeNetwork.Atmosphere.PressureGasses / maxPressure;
+                float pressureRatio = pipeNetwork.Atmosphere.PressureGasses.ToFloat() / maxPressure;
                 float liquidRatio = pipeNetwork.Atmosphere.LiquidVolumeRatio / maxLiquidRatio;
                 float ratio = Mathf.Clamp01(Mathf.Max(pressureRatio, liquidRatio));
                 ;
@@ -758,7 +758,7 @@ namespace MesonScannerMod
             }
             else if (CurrentDisplayMode == DisplayMode.Mode3)
             {
-                float temp = pipeNetwork.Atmosphere.Temperature;
+                float temp = pipeNetwork.Atmosphere.Temperature.ToFloat();
                 if (temp < minTemperature)
                 {
                     minTemperature = temp;
