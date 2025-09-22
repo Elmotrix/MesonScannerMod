@@ -6,16 +6,12 @@ using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Entities;
 using Assets.Scripts.Objects.Items;
-using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.Objects.Pipes;
 using Assets.Scripts.UI;
 using Assets.Scripts.Util;
 using HarmonyLib;
-using Networks;
-using Objects.Pipes;
 using System.Collections.Generic;
 using UnityEngine;
-using static Assets.Scripts.Atmospherics.Chemistry;
 
 namespace MesonScannerMod
 {
@@ -196,19 +192,19 @@ namespace MesonScannerMod
             if (Utils.CurrentMode == Utils.Mode.Other && Utils.CurrentDisplayMode == Utils.DisplayMode.Mode2)
             {
                 modeString = "Structures - Convection";
-                foreach (Thing item in AtmosphericsManager.AtmosphericThings)
+                AtmosphericsManager.AtmosphericThings.ForEach(item =>
                 {
                     if (item is Structure && !item.IsOccluded && item.EnergyConvected != 0 && !(item is Pipe))
                     {
                         Color color = Utils.GetConvectionColor(item.EnergyConvected);
                         Utils.AddToBatch(item, color, ref ____batchList);
                     }
-                }
+                });
             }
             if (Utils.CurrentMode == Utils.Mode.Other && Utils.CurrentDisplayMode == Utils.DisplayMode.Mode3)
             {
                 modeString = "Structures - Damage";
-                foreach (Thing item in Thing.AllThings)
+                OcclusionManager.AllThings.ForEach(item =>
                 {
                     if (item.DamageState.TotalRatio > 0 && item is Structure && !item.IsOccluded)
                     {
@@ -216,18 +212,18 @@ namespace MesonScannerMod
                         thisColor += GameManager.Instance.CustomColors[4].Color * item.DamageState.TotalRatio;
                         Utils.AddToBatch(item, thisColor, ref ____batchList);
                     }
-                }
+                });
             }
             if (Utils.CurrentMode == Utils.Mode.Chutes && Utils.CurrentDisplayMode == Utils.DisplayMode.Mode3)
             {
                 modeString = "Loose Items";
-                foreach (Item item in Item.AllItems)
+                OcclusionManager.AllDynamicThings.ForEach(item =>
                 {
                     if (item.ParentSlot == null && !item.IsOccluded)
                     {
                         Utils.AddToBatch(item, item.CustomColor.Color, ref ____batchList);
                     }
-                }
+                });
             }
             if (Utils.CurrentMode == Utils.Mode.Other && Utils.CurrentDisplayMode == Utils.DisplayMode.Mode1)
             {
@@ -425,7 +421,7 @@ namespace MesonScannerMod
         public static bool Blink()
         {
             int f = System.DateTime.Now.Millisecond;
-            return (f >= 0 && f <= 300) || (f >= 500 && f <= 800); 
+            return (f >= 0 && f <= 300) || (f >= 500 && f <= 800);
         }
         public static void Iterate(short i)
         {
@@ -564,7 +560,7 @@ namespace MesonScannerMod
         {
             return ChuteNetwork.AllChuteNetworks;
         }
-        public static List<CableNetwork> GetCableNetworks( Material color)
+        public static List<CableNetwork> GetCableNetworks(Material color)
         {
             if (LockIn && lockCables.Count > 0)
             {
@@ -576,9 +572,9 @@ namespace MesonScannerMod
             }
             lockCables.Clear();
             colorFilter = color;
-            foreach (CableNetwork cableNetwork in GetCableNetworks())
+            GetCableNetworks().ForEach(cableNetwork =>
             {
-                if (colorFilter == null )
+                if (colorFilter == null)
                 {
                     lockCables.Add(cableNetwork);
                 }
@@ -593,10 +589,10 @@ namespace MesonScannerMod
                         }
                     }
                 }
-            }
+            });
             return lockCables;
         }
-        private static List<CableNetwork> GetCableNetworks()
+        private static ConcurrentDensePool<CableNetwork> GetCableNetworks()
         {
             return CableNetwork.AllCableNetworks;
         }
@@ -642,7 +638,7 @@ namespace MesonScannerMod
         {
             return PipeNetwork.AllPipeNetworks;
         }
-        public static void NextMode()   
+        public static void NextMode()
         {
             switch (CurrentMode)
             {
@@ -665,7 +661,7 @@ namespace MesonScannerMod
             colorFilter = null;
             listIndex = -1;
             LockIn = false;
-    }
+        }
         public static void NextDisplayMode()
         {
             switch (CurrentDisplayMode)
@@ -704,7 +700,7 @@ namespace MesonScannerMod
             if (convection > 0)
             {
                 float ratio = convection / maxEnergy;
-                thisColor += GameManager.Instance.CustomColors[6].Color * (1-ratio);
+                thisColor += GameManager.Instance.CustomColors[6].Color * (1 - ratio);
                 thisColor += GameManager.Instance.CustomColors[4].Color * ratio;
             }
             else
@@ -722,7 +718,7 @@ namespace MesonScannerMod
                 return cable.CustomColor.Color;
             }
             float ratio = cableNetwork.CurrentLoad / cable.MaxVoltage;
-            Color thisColor = GameManager.Instance.CustomColors[2].Color * (1- ratio);
+            Color thisColor = GameManager.Instance.CustomColors[2].Color * (1 - ratio);
             thisColor += GameManager.Instance.CustomColors[4].Color * ratio;
             return thisColor;
         }
@@ -777,7 +773,7 @@ namespace MesonScannerMod
                 }
                 else
                 {
-                    ratio = ratio*2;
+                    ratio = ratio * 2;
                     thisColor += GameManager.Instance.CustomColors[0].Color * (1 - ratio);
                     thisColor += GameManager.Instance.CustomColors[6].Color * ratio;
                 }
@@ -833,7 +829,7 @@ namespace MesonScannerMod
             }
             if (Batches.TryGetValue(hash, out var value))
             {
-                value.Matrices.Add( GetMatrix(thing, parent) );
+                value.Matrices.Add(GetMatrix(thing, parent));
                 value.Colors.Add(color);
             }
             else
@@ -856,13 +852,13 @@ namespace MesonScannerMod
                 {
                     return Matrix4x4.TRS(structure.Position - structure.Up, thing.Rotation, Vector3.one);
                 }
-                return  structure.GetBatchMatrix();
+                return structure.GetBatchMatrix();
             }
             else
             {
                 if (parent == null)
                 {
-                    return Matrix4x4.TRS(thing.Position, thing.Rotation, Vector3.one) ;
+                    return Matrix4x4.TRS(thing.Position, thing.Rotation, Vector3.one);
                 }
                 return parent.GetBatchMatrix();
             }
